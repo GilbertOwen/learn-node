@@ -1,0 +1,22 @@
+{
+  "name": "learn-node",
+  "version": "1.0.0",
+  "description": "Application RESTful API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GilbertOwen/likerest-backend.git"
+  },
+  "author": "Gilbert Owen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GilbertOwen/likerest-backend/issues"
+  },
+  "homepage": "https://github.com/GilbertOwen/likerest-backend#readme",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}
