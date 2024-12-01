@@ -4,6 +4,7 @@ import { ResponseError } from "../error/response-error.js";
 import {
   registerUserValidationSchema,
   loginUserValidationSchema,
+  updateUserValidationSchema,
 } from "../validation/user-validation.js";
 import { validate } from "../validation/validation.js";
 import bcrypt from "bcrypt";
@@ -12,7 +13,7 @@ import bcrypt from "bcrypt";
 const register = async (request) => {
   const user = validate(registerUserValidationSchema, request);
 
-  user.password = await bcrypt.hash(user.password, 10);
+  user.password = bcrypt.hashSync(user.password, 10);
 
   const countUser = await prisma.user.count({
     where: {
@@ -43,7 +44,7 @@ const login = async (request) => {
     },
   });
 
-  if (!user || !(bcrypt.compareSync(userCreds.password, user.password))) {
+  if (!user || !bcrypt.compareSync(userCreds.password, user.password)) {
     throw new ResponseError(400, "Invalid username or password");
   }
 
@@ -78,7 +79,73 @@ const login = async (request) => {
   };
 };
 
+// Function to Update a user by accepting request body
+const update = async (request) => {
+  const userInputtedCreds = validate(updateUserValidationSchema, request);
+
+  const user = await prisma.user.findFirst({
+    where: {
+      username: userInputtedCreds.username,
+    },
+  });
+  let newUserCreds = {};
+  // Handle password
+  if (userInputtedCreds.password) {
+    if (!bcrypt.compareSync(userInputtedCreds.password, user.password)) {
+      throw new ResponseError(400, "Invalid password");
+    }
+    newUserCreds.password = bcrypt.hashSync(userInputtedCreds.password, 10);
+  }
+  // Handle email
+  if (userInputtedCreds.email) {
+    if (userInputtedCreds.email !== user.email) {
+      const countUser = await prisma.user.count({
+        where: {
+          email: userInputtedCreds.email,
+        },
+      });
+      if (countUser > 0) {
+        throw new ResponseError(400, "Email has already existed");
+      }
+      newUserCreds.email = userInputtedCreds.email;
+    }
+  }
+  // Handle username
+  if (userInputtedCreds.username) {
+    if (userInputtedCreds.username !== user.username) {
+      const countUser = await prisma.user.count({
+        where: {
+          username: userInputtedCreds.username,
+        },
+      });
+      if (countUser > 0) {
+        throw new ResponseError(400, "Username has already existed");
+      }
+    }
+    newUserCreds.username = userInputtedCreds.username;
+  }
+
+  return prisma.user.update({
+    where: { id: user.id },
+    data: newUserCreds,
+    select: {
+      username: true,
+      email: true,
+    },
+  });
+};
+
+const me = async (user) => {
+  return {
+    username: user.username,
+    email: user.email,
+    token: user.token,
+  };
+};
+
 export default {
   register,
   login,
+  update,
+  me,
 };
