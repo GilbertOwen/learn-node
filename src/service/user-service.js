@@ -46,7 +46,7 @@ const login = async (request) => {
     },
   });
 
-  if (!user || !bcrypt.compareSync(userCreds.password, user.password)) {
+  if (!user || !(bcrypt.compareSync(userCreds.password, user.password))) {
     throw new ResponseError(400, "Invalid username or password");
   }
 
