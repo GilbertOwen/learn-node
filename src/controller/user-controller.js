@@ -17,14 +17,14 @@ const login = async (req, res, next) => {
     const result = await userService.login(req.body);
     res.status(200).json({
       data: result,
-      message: "Successfully logged-in",
+      message: "Successfully logged-in to user's account",
     });
   } catch (err) {
     next(err);
   }
 };
 
-const current = async (req, res, next) => {
+const me = async (req, res, next) => {
   try {
     const result = await userService.me(req.user);
     res.status(200).json({
@@ -36,4 +36,27 @@ const current = async (req, res, next) => {
   }
 };
 
-export default { register, login, current };
+const update = async (req, res, next) => {
+  try {
+    const result = await userService.update(req);
+    res.status(200).json({
+      data: result,
+      message: "Successfully updated user's information",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const result = await userService.logout(req);
+    res.status(200).json({
+      message: "Successfully logged out from user's account",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export default { register, login, me, update, logout };
