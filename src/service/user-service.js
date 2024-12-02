@@ -9,6 +9,8 @@ import {
 import { validate } from "../validation/validation.js";
 import bcrypt from "bcrypt";
 
+// TODO : Commit all of the changes, implement it to likerest application
+
 // Function to register a new user by accepting request body
 const register = async (request) => {
   const user = validate(registerUserValidationSchema, request);
@@ -57,10 +59,11 @@ const login = async (request) => {
     process.env.TOKEN_SECRET,
     { expiresIn }
   );
+  let tokenExpiryDate = new Date(Date.now() + expiresIn * 1000);
   try {
     await prisma.user.update({
       where: { id: user.id },
-      data: { token },
+      data: { token, tokenExpiry: tokenExpiryDate },
     });
   } catch (err) {
     console.error("Failed to update user token:", err.message);
@@ -70,7 +73,7 @@ const login = async (request) => {
   return {
     token: {
       token,
-      expiresIn: Date.now() + expiresIn * 1000,
+      expiresIn: tokenExpiryDate,
     },
     user: {
       username: user.username,
@@ -81,13 +84,9 @@ const login = async (request) => {
 
 // Function to Update a user by accepting request body
 const update = async (request) => {
-  const userInputtedCreds = validate(updateUserValidationSchema, request);
+  const userInputtedCreds = validate(updateUserValidationSchema, request.body);
 
-  const user = await prisma.user.findFirst({
-    where: {
-      username: userInputtedCreds.username,
-    },
-  });
+  const user = request.user;
   let newUserCreds = {};
   // Handle password
   if (userInputtedCreds.password) {
@@ -107,22 +106,25 @@ const update = async (request) => {
       if (countUser > 0) {
         throw new ResponseError(400, "Email has already existed");
       }
-      newUserCreds.email = userInputtedCreds.email;
+      newUserCreds.email = userInputtedCreds.email.toLowerCase();
     }
   }
   // Handle username
-  if (userInputtedCreds.username) {
-    if (userInputtedCreds.username !== user.username) {
-      const countUser = await prisma.user.count({
-        where: {
-          username: userInputtedCreds.username,
-        },
-      });
-      if (countUser > 0) {
-        throw new ResponseError(400, "Username has already existed");
-      }
+  if (
+    userInputtedCreds.username &&
+    userInputtedCreds.username !== user.username
+  ) {
+    // Only update the username if it's different from the current one
+    const countUser = await prisma.user.count({
+      where: {
+        username: user.username,
+      },
+    });
+
+    if (countUser > 0) {
+      throw new ResponseError(400, "Username has already existed");
     }
-    newUserCreds.username = userInputtedCreds.username;
+    newUserCreds.username = userInputtedCreds.username.toLowerCase();
   }
 
   return prisma.user.update({
@@ -139,8 +141,18 @@ const me = async (user) => {
   return {
     username: user.username,
     email: user.email,
-    token: user.token,
   };
+};
+
+const logout = async (req) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { token: null },
+    });
+  } catch (err) {
+    throw new Error("Error updating user token");
+  }
 };
 
 export default {
@@ -148,4 +160,5 @@ export default {
   login,
   update,
   me,
+  logout,
 };
