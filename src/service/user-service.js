@@ -17,14 +17,31 @@ const register = async (request) => {
 
   user.password = bcrypt.hashSync(user.password, 10);
 
-  const countUser = await prisma.user.count({
-    where: {
-      OR: [{ username: user.username }, { email: user.email }],
-    },
+  const countUserUsername = await prisma.user.count({
+    where: { username: user.username },
   });
 
-  if (countUser > 0) {
-    throw new ResponseError(400, "Username or email has already existed");
+  const countUserEmail = await prisma.user.count({
+    where: { email: user.email },
+  });
+
+  if (countUserEmail > 0 && countUserUsername > 0) {
+    throw new ResponseError(400, "Failed to register user's account", {
+      username: "Username has already existed",
+      email: "Email has already existed",
+    });
+  }
+
+  if (countUserEmail > 0) {
+    throw new ResponseError(400, "Failed to register user's account", {
+      email: "Email has already existed",
+    });
+  }
+
+  if (countUserUsername > 0) {
+    throw new ResponseError(400, "Failed to register user's account", {
+      username: "Username has already existed",
+    });
   }
 
   return prisma.user.create({
@@ -46,8 +63,8 @@ const login = async (request) => {
     },
   });
 
-  if (!user || !(bcrypt.compareSync(userCreds.password, user.password))) {
-    throw new ResponseError(400, "Invalid username or password");
+  if (!user || !bcrypt.compareSync(userCreds.password, user.password)) {
+    throw new ResponseError(401, "Invalid username or password");
   }
 
   if (!process.env.TOKEN_SECRET) {
