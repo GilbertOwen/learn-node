@@ -8,7 +8,7 @@ export const errorMiddleware = async (err, req, res, next) => {
     }
     if (err instanceof ResponseError) {
         res.status(err.status)
-           .json({ message: err.message, errors: err.message })
+           .json({ message: err.message, errors: err.errors })
            .end();
     } else if (err instanceof ZodError) {
         res.status(400)
