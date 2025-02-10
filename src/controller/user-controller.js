@@ -15,8 +15,15 @@ const register = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const result = await userService.login(req.body);
+    const base64Token = Buffer.from(result.token.token).toString("base64");
+
+    const bearerToken = `Bearer ${base64Token}`;
+
+    res.setHeader("Set-Cookie", `auth=${bearerToken}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict; ${process.env.NODE_ENV !== "development" ? "Secure" : ""}`);
+
+
     res.status(200).json({
-      data: result,
+      data: result.user,
       message: "Successfully logged-in to user's account",
     });
   } catch (err) {

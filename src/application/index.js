@@ -6,11 +6,14 @@ const app = express();
 app.use(express.json());
 import cors from "cors";
 
-app.options("*", cors()); // Preflight request support
+// app.options("*", cors()); // Preflight request support
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://159.65.9.173:3000"], // Front-end URL
+    origin: ["http://localhost:3000"], // Front-end URL
+    credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: "Content-Type,Authorization",
   })
 );
 

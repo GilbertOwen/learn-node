@@ -1,46 +1,54 @@
 import { prisma } from "../application/database.js";
 
 export const authMiddleware = async (req, res, next) => {
-  const token = req.get("Authorization");
-  if (!token) {
-    res
-      .status(401)
-      .json({
+  try {
+    let header = req.get("Authorization");
+    if (!header) {
+      return res.status(401).json({
         message: "Unauthorized",
-        errors: "Unauthorized",
-      })
-      .end();
-  } else {
-    const user = await prisma.user.findUnique({
-      where: {
-        token,
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        tokenExpiry: true,
+        errors: "Authorization header is missing",
+      });
+    }
+
+    header = decodeURIComponent(header);
+
+    const parts = header.split(" ");
+    if (parts.length !== 2 || parts[0] !== "Bearer") {
+      return res.status(401).json({
+        message: "Unauthorized",
+        errors: "Invalid Authorization format",
+      });
+    }
+
+    const token = parts[1];
+
+    const decodedToken = Buffer.from(token, "base64").toString("utf-8");
+
+    const session = await prisma.sessionToken.findUnique({
+      where: { token: decodedToken },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
       },
     });
-    // Check if user exists
-    if (!user) {
+
+    if (!session) {
       return res.status(401).json({
         message: "Unauthorized",
         errors: "Invalid token",
       });
     }
-    if (user.tokenExpiry) {
-      const expiryDate = new Date(user.tokenExpiry);
+
+    if (session.tokenExpiry) {
+      const expiryDate = new Date(session.tokenExpiry);
       if (expiryDate.getTime() <= Date.now()) {
-        // Expired token: clear the token and tokenExpiry fields
-        await prisma.user.update({
-          where: {
-            id: user.id,
-          },
-          data: {
-            token: null,
-            tokenExpiry: null,
-          },
+        await prisma.sessionToken.delete({
+          where: { id: session.id },
         });
 
         return res.status(401).json({
@@ -49,7 +57,13 @@ export const authMiddleware = async (req, res, next) => {
         });
       }
     }
-    req.user = user;
+
+    req.user = session.user;
     next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Unauthorized",
+      errors: error.message,
+    });
   }
 };

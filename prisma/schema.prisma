@@ -13,14 +13,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-  id Int @id @default(autoincrement())
-  token String? @unique @db.VarChar(255)
-  tokenExpiry DateTime? 
-  username String @unique @db.VarChar(100)
-  email String @unique
-  password String @db.VarChar(100)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model User {
+  id           Int            @id @default(autoincrement())
+  username     String         @unique @db.VarChar(100)
+  email        String         @unique
+  password     String         @db.VarChar(100)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sessionTokens SessionToken[]
+  posts        Post[]
+  saves        Save[]
+  comments Comment[]
+
   @@map("users")
 }
+
+model SessionToken {
+  id          Int       @id @default(autoincrement())
+  token       String?   @unique @db.VarChar(255)
+  tokenExpiry DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+}
+
+model Post {
+  id          String   @id @default(uuid())
+  title       String?
+  description String?
+  imageUrl    String
+  link        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  saves       Save[]
+  tags        PostTag[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Save {
+  id      String @id @default(uuid())
+  userId  Int
+  postId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id      String  @id @default(uuid())
+  name    String  @unique
+  posts   PostTag[]
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([postId, tagId])
+}
+
