@@ -59,9 +59,13 @@ const login = async (request) => {
 
   const user = await prisma.user.findFirst({
     where: {
-      username: userCreds.username,
+      OR: [
+        { username: userCreds.username },
+        { email: userCreds.username },
+      ],
     },
   });
+  
 
   if (!user || !bcrypt.compareSync(userCreds.password, user.password)) {
     throw new ResponseError(401, "Invalid username or password");
@@ -70,7 +74,7 @@ const login = async (request) => {
   if (!process.env.TOKEN_SECRET) {
     throw new Error("TOKEN_SECRET environment variable is not set");
   }
-  const expiresIn = 1800; // in seconds
+  const expiresIn = 24 * 60 * 60; // in seconds
   const token = jwt.sign(
     { userId: user.id, username: user.username, email: user.email },
     process.env.TOKEN_SECRET,
@@ -78,9 +82,8 @@ const login = async (request) => {
   );
   let tokenExpiryDate = new Date(Date.now() + expiresIn * 1000);
   try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { token, tokenExpiry: tokenExpiryDate },
+    await prisma.sessionToken.create({
+      data: { token, tokenExpiry: tokenExpiryDate, userId: user.id },
     });
   } catch (err) {
     console.error("Failed to update user token:", err.message);
