@@ -14,16 +14,20 @@ datasource db {
 }
 
 model User {
-  id           Int            @id @default(autoincrement())
-  username     String         @unique @db.VarChar(100)
-  email        String         @unique
-  password     String         @db.VarChar(100)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            Int            @id @default(autoincrement())
+  username      String         @unique @db.VarChar(100)
+  frontName     String
+  rearName      String?
+  imageUrl      String?
+  biodata       String?
+  email         String         @unique
+  password      String         @db.VarChar(100)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessionTokens SessionToken[]
-  posts        Post[]
-  saves        Save[]
-  comments Comment[]
+  posts         Post[]
+  saves         Save[]
+  comments      Comment[]
 
   @@map("users")
 }
@@ -37,15 +41,15 @@ model SessionToken {
 }
 
 model Post {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String?
   description String?
   imageUrl    String
   link        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments    Comment[]
   saves       Save[]
   tags        PostTag[]
@@ -62,25 +66,24 @@ model Comment {
 }
 
 model Save {
-  id      String @id @default(uuid())
-  userId  Int
-  postId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post    Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId Int
+  postId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
 
 model Tag {
-  id      String  @id @default(uuid())
-  name    String  @unique
-  posts   PostTag[]
+  id    String    @id @default(uuid())
+  name  String    @unique
+  posts PostTag[]
 }
 
 model PostTag {
   postId String
   tagId  String
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([postId, tagId])
 }
-
