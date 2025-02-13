@@ -19,8 +19,12 @@ const login = async (req, res, next) => {
 
     const bearerToken = `Bearer ${base64Token}`;
 
-    res.setHeader("Set-Cookie", `auth=${bearerToken}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict; ${process.env.NODE_ENV !== "development" ? "Secure" : ""}`);
-
+    res.setHeader(
+      "Set-Cookie",
+      `auth=${bearerToken}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict; ${
+        process.env.NODE_ENV !== "development" ? "Secure" : ""
+      }`
+    );
 
     res.status(200).json({
       data: result.user,
@@ -33,7 +37,25 @@ const login = async (req, res, next) => {
 
 const me = async (req, res, next) => {
   try {
-    const result = await userService.me(req.user);
+    const result = await userService.me(req.session.user);
+    res.status(200).json({
+      data: result,
+      message: "Successfully retrieved user's information",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const profile = async (req, res, next) => {
+  try {
+    const result = await userService.profile(req);
+    if (result == null) {
+      res.status(404).json({
+        message: "Failed to retrieve user's information",
+      });
+      return;
+    }
     res.status(200).json({
       data: result,
       message: "Successfully retrieved user's information",
@@ -57,7 +79,7 @@ const update = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    const result = await userService.logout(req);
+    await userService.logout(req);
     res.status(200).json({
       message: "Successfully logged out from user's account",
     });
@@ -66,4 +88,4 @@ const logout = async (req, res, next) => {
   }
 };
 
-export default { register, login, me, update, logout };
+export default { register, login, me, update, logout, profile };
