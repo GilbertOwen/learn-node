@@ -59,10 +59,7 @@ const login = async (request) => {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { username: userCreds.username },
-        { email: userCreds.username },
-      ],
+      OR: [{ username: userCreds.username }, { email: userCreds.username }],
     },
   });
   
@@ -105,49 +102,53 @@ const login = async (request) => {
 // Function to Update a user by accepting request body
 const update = async (request) => {
   const userInputtedCreds = validate(updateUserValidationSchema, request.body);
-
-  const user = request.user;
+  const user = request.session.user;
   let newUserCreds = {};
+
   // Handle password
   if (userInputtedCreds.password) {
     if (!bcrypt.compareSync(userInputtedCreds.password, user.password)) {
-      throw new ResponseError(400, "Invalid password");
+      throw new ResponseError(400, "Invalid password", [
+        { path: "password", message: "Invalid password" },
+      ]);
     }
     newUserCreds.password = bcrypt.hashSync(userInputtedCreds.password, 10);
   }
+
   // Handle email
-  if (userInputtedCreds.email) {
-    if (userInputtedCreds.email !== user.email) {
-      const countUser = await prisma.user.count({
-        where: {
-          email: userInputtedCreds.email,
-        },
-      });
-      if (countUser > 0) {
-        throw new ResponseError(400, "Email has already existed");
-      }
-      newUserCreds.email = userInputtedCreds.email.toLowerCase();
+  if (userInputtedCreds.email && userInputtedCreds.email !== user.email) {
+    const countUser = await prisma.user.count({
+      where: { email: userInputtedCreds.email },
+    });
+    if (countUser > 0) {
+      throw new ResponseError(400, "Email has already existed", [
+        { path: "email", message: "Email has already existed" },
+      ]);
     }
+    userInputtedCreds.email = userInputtedCreds.email.toLowerCase();
   }
+
   // Handle username
   if (
     userInputtedCreds.username &&
     userInputtedCreds.username !== user.username
   ) {
-    // Only update the username if it's different from the current one
     const countUser = await prisma.user.count({
-      where: {
-        username: user.username,
-      },
+      where: { username: userInputtedCreds.username },
     });
 
     if (countUser > 0) {
-      throw new ResponseError(400, "Username has already existed");
+      throw new ResponseError(400, "Username has already existed", [
+        { path: "username", message: "Username has already existed" },
+      ]);
     }
-    newUserCreds.username = userInputtedCreds.username.toLowerCase();
+    userInputtedCreds.username = userInputtedCreds.username.toLowerCase();
   }
 
-  return prisma.user.update({
+  newUserCreds = { ...userInputtedCreds };
+
+  console.log(newUserCreds);
+  const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: newUserCreds,
     select: {
@@ -155,20 +156,52 @@ const update = async (request) => {
       email: true,
     },
   });
+
+  return updatedUser;
 };
 
 const me = async (user) => {
+  if (!user) {
+    throw new Error("User object is required");
+  }
+
   return {
     username: user.username,
     email: user.email,
+    frontName: user.frontName,
+    rearName: user.rearName?.length === 0 ? "" : user.rearName,
+    imageUrl: user.imageUrl ?? "", // Use nullish coalescing for better handling
+    biodata: user.biodata ?? "", // Use nullish coalescing for better handling
   };
+};
+
+const profile = async (req) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(req.userId),
+      },
+      include: {
+        posts: true,
+        saves: true,
+      },
+    });
+    return {
+      name: user.frontName + user.rearName,
+      username: user.username,
+      biodata: user.biodata,
+      // posts : user
+    };
+  } catch (err) {
+    return null;
+  }
 };
 
 const logout = async (req) => {
   try {
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { token: null },
+    // Check the session id that has been attached to request params
+    await prisma.sessionToken.delete({
+      where: { token: req.session.token },
     });
   } catch (err) {
     throw new Error("Error updating user token");
@@ -181,4 +214,5 @@ export default {
   update,
   me,
   logout,
+  profile,
 };

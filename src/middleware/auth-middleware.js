@@ -32,6 +32,9 @@ export const authMiddleware = async (req, res, next) => {
             id: true,
             username: true,
             email: true,
+            biodata: true,
+            frontName: true,
+            rearName: true,
           },
         },
       },
@@ -57,8 +60,7 @@ export const authMiddleware = async (req, res, next) => {
         });
       }
     }
-
-    req.user = session.user;
+    req.session = session;
     next();
   } catch (error) {
     return res.status(401).json({
