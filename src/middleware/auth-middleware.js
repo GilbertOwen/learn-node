@@ -40,7 +40,6 @@ export const authMiddleware = async (req, res, next) => {
       },
     });
 
-
     if (!session) {
       return res.status(401).json({
         message: "Unauthorized",
