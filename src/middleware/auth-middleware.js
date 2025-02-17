@@ -35,6 +35,7 @@ export const authMiddleware = async (req, res, next) => {
             biodata: true,
             frontName: true,
             rearName: true,
+            imageUrl: true
           },
         },
       },
