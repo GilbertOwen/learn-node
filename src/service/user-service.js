@@ -8,6 +8,7 @@ import {
 } from "../validation/user-validation.js";
 import { validate } from "../validation/validation.js";
 import bcrypt from "bcrypt";
+import fs from "fs";
 
 // TODO : Commit all of the changes, implement it to likerest application
 
@@ -62,7 +63,6 @@ const login = async (request) => {
       OR: [{ username: userCreds.username }, { email: userCreds.username }],
     },
   });
-  
 
   if (!user || !bcrypt.compareSync(userCreds.password, user.password)) {
     throw new ResponseError(401, "Invalid username or password");
@@ -98,14 +98,13 @@ const login = async (request) => {
     },
   };
 };
-
-// Function to Update a user by accepting request body
-const update = async (request) => {
-  const userInputtedCreds = validate(updateUserValidationSchema, request.body);
-  const user = request.session.user;
+const update = async (req) => {
+  // Validate the request body (this will throw if validation fails)
+  const userInputtedCreds = validate(updateUserValidationSchema, req.body);
+  const user = req.session.user;
   let newUserCreds = {};
 
-  // Handle password
+  // Handle password update
   if (userInputtedCreds.password) {
     if (!bcrypt.compareSync(userInputtedCreds.password, user.password)) {
       throw new ResponseError(400, "Invalid password", [
@@ -115,7 +114,7 @@ const update = async (request) => {
     newUserCreds.password = bcrypt.hashSync(userInputtedCreds.password, 10);
   }
 
-  // Handle email
+  // Handle email update
   if (userInputtedCreds.email && userInputtedCreds.email !== user.email) {
     const countUser = await prisma.user.count({
       where: { email: userInputtedCreds.email },
@@ -128,7 +127,7 @@ const update = async (request) => {
     userInputtedCreds.email = userInputtedCreds.email.toLowerCase();
   }
 
-  // Handle username
+  // Handle username update
   if (
     userInputtedCreds.username &&
     userInputtedCreds.username !== user.username
@@ -136,7 +135,6 @@ const update = async (request) => {
     const countUser = await prisma.user.count({
       where: { username: userInputtedCreds.username },
     });
-
     if (countUser > 0) {
       throw new ResponseError(400, "Username has already existed", [
         { path: "username", message: "Username has already existed" },
@@ -145,32 +143,69 @@ const update = async (request) => {
     userInputtedCreds.username = userInputtedCreds.username.toLowerCase();
   }
 
-  newUserCreds = { ...userInputtedCreds };
+  // Get the current imageUrl from DB
+  const existingUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { imageUrl: true },
+  });
 
-  console.log(newUserCreds);
+  let imageUrlPath = existingUser.imageUrl; // Default to old image
+
+  if (req.file) {
+    // New profile picture uploaded
+
+    // Delete old profile image (if exists)
+    if (existingUser.imageUrl && fs.existsSync(existingUser.imageUrl)) {
+      fs.unlinkSync(existingUser.imageUrl); // Delete old image
+    }
+
+    // Update with new image
+    imageUrlPath = req.file.path;
+  }
+
+  // Merge validated fields with the new image URL
+  newUserCreds = { ...userInputtedCreds, imageUrl: imageUrlPath };
+
+  // Update and return the updated user record
   const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: newUserCreds,
     select: {
       username: true,
       email: true,
+      imageUrl: true,
     },
   });
 
   return updatedUser;
 };
 
+
+
 const me = async (user) => {
   if (!user) {
     throw new Error("User object is required");
   }
-
+  let imageData = "";
+  if (user.imageUrl) {
+    try {
+      // Read the file into a Buffer
+      const buffer = fs.readFileSync(user.imageUrl);
+      // Convert the buffer to a base64 string
+      imageData = buffer.toString("base64");
+      console.log("Terambil");
+    } catch (err) {
+      console.error("Error reading image file:", err);
+      // Optionally, set imageData to a default value or leave it empty
+      imageData = "";
+    }
+  }
   return {
     username: user.username,
     email: user.email,
     frontName: user.frontName,
     rearName: user.rearName?.length === 0 ? "" : user.rearName,
-    imageUrl: user.imageUrl ?? "", // Use nullish coalescing for better handling
+    imageData: imageData, // Use nullish coalescing for better handling
     biodata: user.biodata ?? "", // Use nullish coalescing for better handling
   };
 };
