@@ -1,4 +1,36 @@
 import userService from "../service/user-service.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const userId = req.session.user.id;
+    const userFolder = `privateImage/${userId}`;
+    if (!fs.existsSync(userFolder)) {
+      fs.mkdirSync(userFolder, { recursive: true });
+    }
+    cb(null, userFolder);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname); // e.g. .jpg, .png
+    const timestamp = Date.now(); // Generate unique ID using current time
+    cb(null, `profile_${timestamp}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(
+        new Error("Only .jpeg, .jpg, .png, and .webp files are allowed"),
+        false
+      );
+    }
+    cb(null, true);
+  },
+});
 
 const register = async (req, res, next) => {
   try {
@@ -66,15 +98,22 @@ const profile = async (req, res, next) => {
 };
 
 const update = async (req, res, next) => {
-  try {
-    const result = await userService.update(req);
-    res.status(200).json({
-      data: result,
-      message: "Successfully updated user's information",
-    });
-  } catch (err) {
-    next(err);
-  }
+  upload.single("profilePicture")(req, res, async (err) => {
+    if (err) {
+      // If multer fails, pass the error to the global error handler
+      return next(err);
+    }
+    try {
+      // Now that file processing is done, call the service
+      const result = await userService.update(req);
+      res.status(200).json({
+        data: result,
+        message: "Successfully updated user's information",
+      });
+    } catch (e) {
+      next(e);
+    }
+  });
 };
 
 const logout = async (req, res, next) => {
